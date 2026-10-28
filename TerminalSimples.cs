@@ -17,15 +17,17 @@ sealed class TerminalSimples : IInterfaceChat
     private int _posHistorico;
     private bool _interativo;
     private readonly bool _cores;
+    private readonly Tema _tema;
     private bool _promptVisivel;
     private int _linhaInicio;
 
-    public string Prompt { get; set; } = "> ";
+    private string Prompt { get; set; } = "> ";
     public bool Mascarar { get; set; }
     public bool Interativo => _interativo;
 
-    public TerminalSimples(bool cores)
+    public TerminalSimples(Tema tema, bool cores)
     {
+        _tema = tema;
         _interativo = !Console.IsInputRedirected && !Console.IsOutputRedirected;
         _cores = cores && !Console.IsOutputRedirected;
         if (_interativo) Console.OutputEncoding = Encoding.UTF8;
@@ -35,13 +37,15 @@ sealed class TerminalSimples : IInterfaceChat
     public void DefinirSala(string? sala, string endereco) { }
     public void DefinirUsuarios(IReadOnlyCollection<string> nomes, string voce, bool listaCompleta) { }
     public void DefinirConectado(bool conectado) { }
-    public void AguardarTecla(string aviso, CancellationToken ct) => Escrever(new Trecho(aviso, ConsoleColor.Red));
+    public void AguardarTecla(string aviso, CancellationToken ct) => Escrever(new Trecho(_tema.Alerta(aviso), ConsoleColor.Red));
+    public void DefinirNome(string nome) { lock (_trava) Prompt = _tema.Prompt(nome); }
+    public void Escrever(Evento evento) => Escrever(_tema.Formatar(evento));
     public void Dispose() { }
 
     // --------------------------------------------------------------- saída
 
     /// <summary>Escreve uma linha completa (em partes coloridas) acima da linha de digitação.</summary>
-    public void Escrever(params Trecho[] trechos)
+    private void Escrever(params Trecho[] trechos)
     {
         lock (_trava)
         {

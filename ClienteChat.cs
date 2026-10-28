@@ -40,8 +40,8 @@ sealed partial class ClienteChat
     public async Task<int> ExecutarAsync(CancellationToken ctExterno)
     {
         _t.DefinirSala(null, _op.Endereco);
-        _t.Prompt = $"{_nome}> ";
-        Sistema($"Conectando a {_op.Endereco}...");
+        _t.DefinirNome(_nome);
+        Mostrar(TipoEvento.Local, $"Conectando a {_op.Endereco}...");
 
         using var tcp = new TcpClient { NoDelay = true };
         try
@@ -62,7 +62,7 @@ sealed partial class ClienteChat
         _t.DefinirConectado(true);
         lock (_travaUsuarios) _usuarios.Add(_nome);
         AtualizarPainel();
-        Sistema("Conectado! Digite /ajuda para ver os comandos.", ConsoleColor.Green);
+        Mostrar(TipoEvento.Sucesso, "Conectado! Digite /ajuda para ver os comandos.");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctExterno);
         await EnviarAsync(_nome, cts.Token); // 1ª linha = nome (igual à v1)
@@ -131,7 +131,7 @@ sealed partial class ClienteChat
             }
 
             await EnviarAsync(linha, cts.Token);
-            MostrarMensagem(_nome, linha);
+            _t.Escrever(new Evento(TipoEvento.Propria, linha, _nome));
         }
     }
 
@@ -147,7 +147,7 @@ sealed partial class ClienteChat
                 _t.Limpar();
                 return true;
             case "/ajuda" or "/help" or "/?":
-                foreach (var l in AjudaComandos) _t.Escrever(l, ConsoleColor.DarkYellow);
+                foreach (var l in AjudaComandos) Mostrar(TipoEvento.Local, l);
                 return true;
             default:
                 // /usuarios, /msg, /nick, /me... são tratados pelo servidor (v2).
@@ -204,7 +204,7 @@ sealed partial class ClienteChat
                 await EnviarAsync(_op.Senha, ct);
                 return;
             }
-            Sistema("Esta sala exige senha. Digite a senha e tecle Enter.", ConsoleColor.DarkYellow);
+            Mostrar(TipoEvento.Aviso, "Esta sala exige senha. Digite a senha e tecle Enter.");
             _aguardandoSenha = true;
             _t.Mascarar = true;
             _pronto.TrySetResult(); // libera a digitação: a próxima linha é a senha
@@ -216,12 +216,12 @@ sealed partial class ClienteChat
             string novo = linha[Protocolo.PrefixoSeuNome.Length..].Trim();
             if (novo.Length == 0) return;
             if (novo != _nome)
-                Sistema($"Seu nome na sala agora é {novo}.", ConsoleColor.DarkYellow);
+                Mostrar(TipoEvento.Aviso, $"Seu nome na sala agora é {novo}.");
 
             _pronto.TrySetResult();
             lock (_travaUsuarios) { _usuarios.Remove(_nome); _usuarios.Add(novo); }
             _nome = novo;
-            _t.Prompt = $"{_nome}> ";
+            _t.DefinirNome(_nome);
 
             if (!_servidorV2)
             {
@@ -249,7 +249,7 @@ sealed partial class ClienteChat
         }
 
         AcompanharEntradasESaidas(linha);
-        MostrarLinhaRecebida(linha);
+        _t.Escrever(Classificar(linha));
     }
 
     // ------------------------------------------------------------ integrantes
@@ -299,51 +299,35 @@ sealed partial class ClienteChat
 
     // --------------------------------------------------------------- exibição
 
-    private void Sistema(string texto, ConsoleColor cor = ConsoleColor.DarkGray) =>
-        _t.Escrever(new Trecho(Hora() + " ", ConsoleColor.DarkGray), new Trecho(texto, cor));
+    private void Mostrar(TipoEvento tipo, string texto) => _t.Escrever(new Evento(tipo, texto));
 
-    private void MostrarLinhaRecebida(string linha)
+    /// <summary>Transforma uma linha do protocolo (texto puro, igual à v1) num evento.</summary>
+    private static Evento Classificar(string linha)
     {
-        var hora = new Trecho(Hora() + " ", ConsoleColor.DarkGray);
+        if (linha.StartsWith(Protocolo.PrefixoServidor, StringComparison.Ordinal))
+            return new(TipoEvento.Servidor, linha[Protocolo.PrefixoServidor.Length..]);
 
-        if (linha.StartsWith('[')) // [servidor] ...
-        {
-            _t.Escrever(hora, new Trecho(linha, ConsoleColor.DarkYellow));
-            return;
-        }
-        if (linha.StartsWith("(privado", StringComparison.Ordinal))
-        {
-            _t.Escrever(hora, new Trecho(linha, ConsoleColor.Magenta));
-            return;
-        }
-        if (linha.StartsWith("* ", StringComparison.Ordinal))
-        {
-            _t.Escrever(hora, new Trecho(linha, ConsoleColor.DarkCyan));
-            return;
-        }
-        if (ReEntrou().IsMatch(linha) || ReSaiu().IsMatch(linha) || ReRenomeou().IsMatch(linha))
-        {
-            _t.Escrever(hora, new Trecho(linha, ConsoleColor.DarkGray));
-            return;
-        }
+        Match m;
+        if ((m = RePrivadoDe().Match(linha)).Success)
+            return new(TipoEvento.Privado, m.Groups[2].Value, m.Groups[1].Value, "de");
+        if ((m = RePrivadoPara().Match(linha)).Success)
+            return new(TipoEvento.Privado, m.Groups[2].Value, m.Groups[1].Value, "para");
+        if ((m = ReAcao().Match(linha)).Success)
+            return new(TipoEvento.Acao, m.Groups[2].Value, m.Groups[1].Value);
+        if ((m = ReEntrou().Match(linha)).Success) return new(TipoEvento.Entrou, Autor: m.Groups[1].Value);
+        if ((m = ReSaiu().Match(linha)).Success) return new(TipoEvento.Saiu, Autor: m.Groups[1].Value);
+        if ((m = ReRenomeou().Match(linha)).Success) return new(TipoEvento.Renomeou, Autor: m.Groups[1].Value, Extra: m.Groups[2].Value);
 
         int dp = linha.IndexOf(": ", StringComparison.Ordinal);
         if (dp > 0 && dp <= 32 && !linha[..dp].Contains(' '))
-        {
-            MostrarMensagem(linha[..dp], linha[(dp + 2)..]);
-            return;
-        }
+            return new(TipoEvento.Mensagem, linha[(dp + 2)..], linha[..dp]);
 
-        _t.Escrever(hora, new Trecho(linha));
+        return new(TipoEvento.Texto, linha);
     }
 
-    private void MostrarMensagem(string autor, string texto) =>
-        _t.Escrever(
-            new Trecho(Hora() + " ", ConsoleColor.DarkGray),
-            new Trecho(autor, Cores.DoNome(autor)),
-            new Trecho(": " + texto));
-
-    private static string Hora() => DateTime.Now.ToString("HH:mm");
+    [GeneratedRegex(@"^\(privado\) (\S+): (.*)$")] private static partial Regex RePrivadoDe();
+    [GeneratedRegex(@"^\(privado para (\S+)\) (.*)$")] private static partial Regex RePrivadoPara();
+    [GeneratedRegex(@"^\* (\S+) (.+)$")] private static partial Regex ReAcao();
 
     private static string DescreverErro(Exception ex) => ex switch
     {

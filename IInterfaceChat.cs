@@ -1,23 +1,20 @@
 ﻿namespace MrsChat;
 
-/// <summary>Um pedaço de texto com cor opcional (null = cor padrão do terminal).</summary>
-readonly record struct Trecho(string Texto, ConsoleColor? Cor = null);
-
 /// <summary>
 /// O que o <see cref="ClienteChat"/> precisa da interface. Há duas implementações:
 /// <see cref="TelaCheia"/> (padrão, com painéis) e <see cref="TerminalSimples"/>
-/// (linha a linha, usada com --simples, em terminais pequenos ou com entrada/saída redirecionada).
+/// (linha a linha, usada com --simples ou com entrada/saída redirecionada).
+/// A aparência das duas vem do <see cref="Tema"/>.
 /// </summary>
 interface IInterfaceChat : IDisposable
 {
-    /// <summary>Rótulo antes do texto digitado, normalmente "Nome> ".</summary>
-    string Prompt { get; set; }
+    /// <summary>Seu nome atual (aparece no rótulo da linha de digitação).</summary>
+    void DefinirNome(string nome);
 
     /// <summary>Mostra * no lugar do que é digitado (senha).</summary>
     bool Mascarar { get; set; }
 
-    void Escrever(params Trecho[] trechos);
-    void Escrever(string texto, ConsoleColor? cor = null) => Escrever(new Trecho(texto, cor));
+    void Escrever(Evento evento);
     void Limpar();
 
     /// <summary>Lê uma linha. Retorna null se cancelado (conexão caiu) ou Ctrl+D.</summary>

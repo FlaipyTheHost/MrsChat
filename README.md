@@ -8,14 +8,23 @@ Criei este projeto inspirado em uma cena do filme **The Incredible Hulk (2008)**
 Captura do funcionamento de **MrsChat**:
 # <img src="captura2.gif">
 
+## Novidades da v2.2
+
+- **Tema militar** (padrão): terminal de fósforo verde dos anos 80, fundo preto, moldura dupla, rótulos em caixa alta no estilo teletipo e nomes como indicativos de chamada.
+- Sequência de inicialização ao abrir (qualquer tecla pula).
+- Cabeçalho com relógio em segundos, indicador de link piscando e, em janelas largas, o grupo data-hora militar (ex.: `281432P OUT 26`).
+- Variante **âmbar** (`--tema ambar`) e o visual anterior em `--tema classico`.
+
+<img src="captura-abertura.png">
+
+<img src="captura-tela-cheia.png">
+
 ## Novidades da v2.1
 
 - **Interface em tela cheia**: cabeçalho com app, versão, sala, endereço e hora; histórico da conversa com rolagem; painel de integrantes à direita; caixa de mensagem embaixo.
 - Painel de integrantes atualizado em tempo real (entradas, saídas e `/nick`).
 - Tab completa nomes, PgUp/PgDn rola o histórico, ←/→/Home/End editam a mensagem.
 - Ajusta-se ao tamanho da janela; em janelas estreitas o painel de integrantes some. Use `--simples` para a interface linha a linha.
-
-<img src="captura-tela-cheia.png">
 
 ## Novidades da v2.0
 
@@ -55,6 +64,7 @@ dotnet MrsChat.dll --nome MrBlue --servidor 192.168.0.10:9000
 | `-n`, `--nome <nome>` | Seu nome na sala |
 | `-s`, `--servidor <endereço>` | Ex.: `192.168.0.10:9000` ou `bore.pub:41234` |
 | `--senha <senha>` | Senha da sala, se houver (sem ela, o programa pergunta) |
+| `-t`, `--tema <nome>` | `militar` (padrão), `ambar` ou `classico` |
 | `--sem-cor` | Desliga as cores |
 | `--simples` | Interface linha a linha, sem painéis |
 | `-h`, `--ajuda` | Mostra a ajuda |
@@ -65,6 +75,7 @@ A forma antiga `dotnet MrsChat.dll <nome_usuário> <ip:porta>` continua funciona
 nome=MrGreen
 servidor=localhost:9000
 senha=
+tema=militar
 ```
 
 ## Comandos no chat

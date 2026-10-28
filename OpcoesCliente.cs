@@ -11,6 +11,7 @@ sealed class OpcoesCliente
     public string? Senha { get; set; }
     public bool SemCor { get; set; }
     public bool Simples { get; set; }
+    public Tema Tema { get; set; } = TemaTerminal.Verde;
     public bool MostrarAjuda { get; set; }
     public bool MostrarVersao { get; set; }
 
@@ -48,6 +49,7 @@ sealed class OpcoesCliente
                 case "senha": Senha = Vazio(valor); break;
                 case "cores": SemCor = valor.ToLowerInvariant() is "nao" or "não" or "false" or "0" or "off"; break;
                 case "interface": Simples = valor.Equals("simples", StringComparison.OrdinalIgnoreCase); break;
+                case "tema": if (valor.Length > 0) Tema = LerTema(valor, caminho); break;
             }
         }
     }
@@ -73,6 +75,7 @@ sealed class OpcoesCliente
                 case "--senha": Senha = Valor(); break;
                 case "--sem-cor" or "--no-color": SemCor = true; break;
                 case "--simples": Simples = true; break;
+                case "-t" or "--tema": Tema = LerTema(Valor(), a); break;
                 default:
                     if (a.StartsWith("--")) throw new ErroDeOpcao($"Opção desconhecida: {a}");
                     posicionais.Add(a);
@@ -131,6 +134,9 @@ sealed class OpcoesCliente
         return p;
     }
 
+    private static Tema LerTema(string v, string origem) =>
+        Tema.Escolher(v) ?? throw new ErroDeOpcao($"{origem}: tema desconhecido \"{v}\" (use: {string.Join(", ", Tema.Nomes)}).");
+
     private static string? Vazio(string v) => v.Length == 0 ? null : v;
 
     public static string TextoAjuda => $"""
@@ -144,6 +150,7 @@ sealed class OpcoesCliente
           -n, --nome <nome>          Seu nome na sala
           -s, --servidor <endereço>  Servidor, ex.: 192.168.0.10:9000 ou bore.pub:41234
               --senha <senha>        Senha da sala, se houver
+          -t, --tema <nome>          militar (padrão, fósforo verde), ambar ou classico
               --sem-cor              Desliga as cores
               --simples              Interface linha a linha, sem painéis (a tela cheia é o padrão)
           -h, --ajuda                Mostra esta ajuda
@@ -156,6 +163,7 @@ sealed class OpcoesCliente
           servidor=bore.pub:41234
           senha=
           interface=tela-cheia      (ou: simples)
+          tema=militar              (ou: ambar, classico)
 
         Comandos dentro do chat:
           /usuarios  /msg <nome> <texto>  /nick <nome>  /me <ação>  /limpar  /ajuda  /sair

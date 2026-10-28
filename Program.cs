@@ -41,8 +41,8 @@ using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
 IInterfaceChat ui = !op.Simples && TelaCheia.Disponivel(out _)
-    ? new TelaCheia(cores: !op.SemCor)
-    : new TerminalSimples(cores: !op.SemCor);
+    ? new TelaCheia(op.Tema, cores: !op.SemCor)
+    : new TerminalSimples(op.Tema, cores: !op.SemCor);
 
 int codigo;
 ClienteChat cliente = new(op, ui);
