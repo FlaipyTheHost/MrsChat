@@ -30,7 +30,9 @@ sealed class OpcoesCliente
 
     private void AplicarArquivo()
     {
-        string? caminho = new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory }
+        // Diretório atual, depois ~/.config/MrsChat (útil quando instalado por pacote), depois a pasta do programa.
+        string configUsuario = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MrsChat");
+        string? caminho = new[] { Directory.GetCurrentDirectory(), configUsuario, AppContext.BaseDirectory }
             .Select(d => Path.Combine(d, ArquivoConfiguracao))
             .FirstOrDefault(File.Exists);
         if (caminho is null) return;
