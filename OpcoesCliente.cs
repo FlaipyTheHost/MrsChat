@@ -10,6 +10,7 @@ sealed class OpcoesCliente
     public int Porta { get; set; } = PortaPadrao;
     public string? Senha { get; set; }
     public bool SemCor { get; set; }
+    public bool Simples { get; set; }
     public bool MostrarAjuda { get; set; }
     public bool MostrarVersao { get; set; }
 
@@ -46,6 +47,7 @@ sealed class OpcoesCliente
                 case "servidor": if (valor.Length > 0) DefinirServidor(valor, caminho); break;
                 case "senha": Senha = Vazio(valor); break;
                 case "cores": SemCor = valor.ToLowerInvariant() is "nao" or "não" or "false" or "0" or "off"; break;
+                case "interface": Simples = valor.Equals("simples", StringComparison.OrdinalIgnoreCase); break;
             }
         }
     }
@@ -70,6 +72,7 @@ sealed class OpcoesCliente
                 case "-s" or "--servidor": DefinirServidor(Valor(), a); break;
                 case "--senha": Senha = Valor(); break;
                 case "--sem-cor" or "--no-color": SemCor = true; break;
+                case "--simples": Simples = true; break;
                 default:
                     if (a.StartsWith("--")) throw new ErroDeOpcao($"Opção desconhecida: {a}");
                     posicionais.Add(a);
@@ -142,6 +145,7 @@ sealed class OpcoesCliente
           -s, --servidor <endereço>  Servidor, ex.: 192.168.0.10:9000 ou bore.pub:41234
               --senha <senha>        Senha da sala, se houver
               --sem-cor              Desliga as cores
+              --simples              Interface linha a linha, sem painéis (a tela cheia é o padrão)
           -h, --ajuda                Mostra esta ajuda
           -v, --versao               Mostra a versão
 
@@ -151,9 +155,13 @@ sealed class OpcoesCliente
           nome=MrBlue
           servidor=bore.pub:41234
           senha=
+          interface=tela-cheia      (ou: simples)
 
         Comandos dentro do chat:
           /usuarios  /msg <nome> <texto>  /nick <nome>  /me <ação>  /limpar  /ajuda  /sair
+
+        Teclas na tela cheia:
+          Enter envia · ↑/↓ histórico · PgUp/PgDn rola · Tab completa nomes · Esc limpa · Ctrl+L redesenha
         """;
 }
 

@@ -37,11 +37,34 @@ if (op.Nome is null || op.Host is null)
     }
 }
 
-var terminal = new Terminal(cores: !op.SemCor);
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
-int codigo = await new ClienteChat(op, terminal).ExecutarAsync(cts.Token);
+IInterfaceChat ui = !op.Simples && TelaCheia.Disponivel(out _)
+    ? new TelaCheia(cores: !op.SemCor)
+    : new TerminalSimples(cores: !op.SemCor);
+
+int codigo;
+ClienteChat cliente = new(op, ui);
+try
+{
+    codigo = await cliente.ExecutarAsync(cts.Token);
+}
+finally
+{
+    ui.Dispose(); // devolve o terminal ao normal mesmo se algo der errado
+}
+
+if (cliente.MensagemFinal is { } final)
+{
+    Console.ForegroundColor = codigo == 0 ? ConsoleColor.Gray : ConsoleColor.Red;
+    Console.WriteLine(final);
+    Console.ResetColor();
+}
+else if (codigo == 0)
+{
+    Console.WriteLine("Até logo!");
+}
 if (codigo == 1) Pausar();
 return codigo;
 

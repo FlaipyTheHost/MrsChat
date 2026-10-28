@@ -8,6 +8,15 @@ Criei este projeto inspirado em uma cena do filme **The Incredible Hulk (2008)**
 Captura do funcionamento de **MrsChat**:
 # <img src="captura2.gif">
 
+## Novidades da v2.1
+
+- **Interface em tela cheia**: cabeçalho com app, versão, sala, endereço e hora; histórico da conversa com rolagem; painel de integrantes à direita; caixa de mensagem embaixo.
+- Painel de integrantes atualizado em tempo real (entradas, saídas e `/nick`).
+- Tab completa nomes, PgUp/PgDn rola o histórico, ←/→/Home/End editam a mensagem.
+- Ajusta-se ao tamanho da janela; em janelas estreitas o painel de integrantes some. Use `--simples` para a interface linha a linha.
+
+<img src="captura-tela-cheia.png">
+
 ## Novidades da v2.0
 
 - **Conexão pela internet**: basta usar o endereço público que o servidor mostra com `--publico` (ex.: `bore.pub:41234`).
@@ -47,6 +56,7 @@ dotnet MrsChat.dll --nome MrBlue --servidor 192.168.0.10:9000
 | `-s`, `--servidor <endereço>` | Ex.: `192.168.0.10:9000` ou `bore.pub:41234` |
 | `--senha <senha>` | Senha da sala, se houver (sem ela, o programa pergunta) |
 | `--sem-cor` | Desliga as cores |
+| `--simples` | Interface linha a linha, sem painéis |
 | `-h`, `--ajuda` | Mostra a ajuda |
 
 A forma antiga `dotnet MrsChat.dll <nome_usuário> <ip:porta>` continua funcionando, assim como rodar sem parâmetros usando o `MrsChat.conf`:
@@ -67,3 +77,18 @@ senha=
 | `/me <ação>` | Ex.: `/me acenou` |
 | `/limpar` | Limpa a tela |
 | `/sair` | Sai do chat (ou Ctrl+C) |
+
+## Teclas na tela cheia
+
+| Tecla | Ação |
+|---|---|
+| Enter | Envia a mensagem |
+| ↑ / ↓ | Mensagens enviadas antes |
+| PgUp / PgDn | Rola o histórico |
+| Esc | Limpa a mensagem; com ela vazia, volta ao fim da conversa |
+| Tab | Completa o nome de um integrante (de novo para o próximo) |
+| ← → Home End | Movem o cursor; Ctrl+W apaga uma palavra |
+| Ctrl+L | Redesenha a tela |
+| Ctrl+C | Sai |
+
+O painel de integrantes precisa do MrsChatServer v2. Com o servidor v1 ele mostra só quem entrou depois de você ("Vistos").

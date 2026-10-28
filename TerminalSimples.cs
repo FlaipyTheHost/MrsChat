@@ -3,17 +3,14 @@
 namespace MrsChat;
 
 /// <summary>
-/// Interface de terminal do chat: as mensagens que chegam são impressas ACIMA da linha
-/// de digitação, sem apagar o que você está escrevendo (na v1 a tela inteira era limpa
-/// e redesenhada a cada mensagem).
+/// Interface linha a linha (--simples): as mensagens que chegam são impressas ACIMA da linha
+/// de digitação, sem apagar o que você está escrevendo.
 ///
 /// Recursos: histórico com ↑/↓, Esc limpa a linha, senha mascarada com *, e um modo
-/// simples (ReadLine/WriteLine) quando a entrada ou saída é redirecionada (scripts, pipes).
+/// ReadLine/WriteLine puro quando a entrada ou saída é redirecionada (scripts, pipes).
 /// </summary>
-sealed class Terminal
+sealed class TerminalSimples : IInterfaceChat
 {
-    public readonly record struct Trecho(string Texto, ConsoleColor? Cor = null);
-
     private readonly object _trava = new();
     private readonly StringBuilder _entrada = new();
     private readonly List<string> _historico = [];
@@ -27,16 +24,21 @@ sealed class Terminal
     public bool Mascarar { get; set; }
     public bool Interativo => _interativo;
 
-    public Terminal(bool cores)
+    public TerminalSimples(bool cores)
     {
         _interativo = !Console.IsInputRedirected && !Console.IsOutputRedirected;
         _cores = cores && !Console.IsOutputRedirected;
         if (_interativo) Console.OutputEncoding = Encoding.UTF8;
     }
 
-    // --------------------------------------------------------------- saída
+    // Os painéis só existem na tela cheia; aqui essas informações não são exibidas.
+    public void DefinirSala(string? sala, string endereco) { }
+    public void DefinirUsuarios(IReadOnlyCollection<string> nomes, string voce, bool listaCompleta) { }
+    public void DefinirConectado(bool conectado) { }
+    public void AguardarTecla(string aviso, CancellationToken ct) => Escrever(new Trecho(aviso, ConsoleColor.Red));
+    public void Dispose() { }
 
-    public void Escrever(string texto, ConsoleColor? cor = null) => Escrever(new Trecho(texto, cor));
+    // --------------------------------------------------------------- saída
 
     /// <summary>Escreve uma linha completa (em partes coloridas) acima da linha de digitação.</summary>
     public void Escrever(params Trecho[] trechos)
