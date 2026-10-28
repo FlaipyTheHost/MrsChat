@@ -11,6 +11,8 @@ sealed class OpcoesCliente
     public string? Senha { get; set; }
     public bool SemCor { get; set; }
     public bool Simples { get; set; }
+    public bool SemCripto { get; set; }
+    public bool ConfiarNovaChave { get; set; }
     public Tema Tema { get; set; } = TemaTerminal.Verde;
     public bool MostrarAjuda { get; set; }
     public bool MostrarVersao { get; set; }
@@ -48,6 +50,7 @@ sealed class OpcoesCliente
                 case "servidor": if (valor.Length > 0) DefinirServidor(valor, caminho); break;
                 case "senha": Senha = Vazio(valor); break;
                 case "cores": SemCor = valor.ToLowerInvariant() is "nao" or "não" or "false" or "0" or "off"; break;
+                case "cripto": SemCripto = valor.ToLowerInvariant() is "nao" or "não" or "false" or "0" or "off"; break;
                 case "interface": Simples = valor.Equals("simples", StringComparison.OrdinalIgnoreCase); break;
                 case "tema": if (valor.Length > 0) Tema = LerTema(valor, caminho); break;
             }
@@ -75,6 +78,8 @@ sealed class OpcoesCliente
                 case "--senha": Senha = Valor(); break;
                 case "--sem-cor" or "--no-color": SemCor = true; break;
                 case "--simples": Simples = true; break;
+                case "--sem-cripto": SemCripto = true; break;
+                case "--confiar-nova-chave": ConfiarNovaChave = true; break;
                 case "-t" or "--tema": Tema = LerTema(Valor(), a); break;
                 default:
                     if (a.StartsWith("--")) throw new ErroDeOpcao($"Opção desconhecida: {a}");
@@ -152,6 +157,8 @@ sealed class OpcoesCliente
               --senha <senha>        Senha da sala, se houver
           -t, --tema <nome>          militar (padrão, fósforo verde), ambar ou classico
               --sem-cor              Desliga as cores
+              --sem-cripto           Conecta sem criptografia (só para servidores antigos)
+              --confiar-nova-chave   Aceita a chave do servidor mesmo que tenha mudado
               --simples              Interface linha a linha, sem painéis (a tela cheia é o padrão)
           -h, --ajuda                Mostra esta ajuda
           -v, --versao               Mostra a versão
@@ -166,7 +173,11 @@ sealed class OpcoesCliente
           tema=militar              (ou: ambar, classico)
 
         Comandos dentro do chat:
-          /usuarios  /msg <nome> <texto>  /nick <nome>  /me <ação>  /limpar  /ajuda  /sair
+          /usuarios  /msg <nome> <texto>  /nick <nome>  /me <ação>  /chave  /limpar  /ajuda  /sair
+
+        Criptografia: tudo vai cifrado (AES-256-GCM) até o servidor. A impressão digital da chave do
+        servidor aparece no painel VERIFICAÇÃO; todos na sala devem ver o mesmo código.
+        As chaves vistas ficam em {ChavesConhecidas.Caminho}.
 
         Teclas na tela cheia:
           Enter envia · ↑/↓ histórico · PgUp/PgDn rola · Tab completa nomes · Esc limpa · Ctrl+L redesenha

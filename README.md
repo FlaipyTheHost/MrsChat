@@ -8,6 +8,15 @@ Criei este projeto inspirado em uma cena do filme **The Incredible Hulk (2008)**
 Captura do funcionamento de **MrsChat**:
 # <img src="captura2.gif">
 
+## Novidades da v2.3
+
+- **Mensagens cifradas** até o servidor (AES-256-GCM, troca de chaves ECDH P-256 assinada pelo servidor). Exige o MrsChatServer v2.3.
+- **Painel VERIFICAÇÃO** abaixo dos operadores, com a impressão digital da chave do servidor. Todos na sala devem ver o mesmo código, que também aparece na tela do servidor. Se o seu for diferente, sua conexão foi interceptada.
+- O cliente lembra a chave de cada servidor e **recusa a conexão se ela mudar**. Se a troca for legítima (servidor reinstalado), confirme com o administrador e use `--confiar-nova-chave`.
+- Comando `/chave` mostra a impressão digital completa.
+
+A criptografia é entre você e o servidor, não ponta a ponta: o servidor decifra para repassar as mensagens (a tela dele mostra só os bytes cifrados).
+
 ## Novidades da v2.2
 
 - **Tema militar** (padrão): terminal de fósforo verde dos anos 80, fundo preto, moldura dupla, rótulos em caixa alta no estilo teletipo e nomes como indicativos de chamada.
@@ -66,6 +75,8 @@ dotnet MrsChat.dll --nome MrBlue --servidor 192.168.0.10:9000
 | `--senha <senha>` | Senha da sala, se houver (sem ela, o programa pergunta) |
 | `-t`, `--tema <nome>` | `militar` (padrão), `ambar` ou `classico` |
 | `--sem-cor` | Desliga as cores |
+| `--sem-cripto` | Conecta sem criptografia (só para servidores antigos) |
+| `--confiar-nova-chave` | Aceita a chave do servidor mesmo que tenha mudado |
 | `--simples` | Interface linha a linha, sem painéis |
 | `-h`, `--ajuda` | Mostra a ajuda |
 
@@ -86,6 +97,7 @@ tema=militar
 | `/msg <nome> <texto>` | Mensagem privada |
 | `/nick <novo nome>` | Troca seu nome |
 | `/me <ação>` | Ex.: `/me acenou` |
+| `/chave` | Impressão digital completa da chave do servidor |
 | `/limpar` | Limpa a tela |
 | `/sair` | Sai do chat (ou Ctrl+C) |
 

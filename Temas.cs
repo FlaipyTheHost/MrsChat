@@ -59,8 +59,42 @@ abstract class Tema
     public virtual string Alerta(string texto) => texto;
 
     public abstract Trecho[] CabecalhoEsquerda(string? sala, string endereco);
-    public abstract Trecho[] CabecalhoDireita(bool conectado, bool piscar, DateTime agora, bool largo);
+    /// <param name="detalhe">2 = tudo; 1 = sem extras longos (DTG); 0 = o mínimo. A tela tenta do maior para o menor.</param>
+    public abstract Trecho[] CabecalhoDireita(bool conectado, bool cifrado, bool piscar, DateTime agora, int detalhe);
     public abstract Trecho[] Membro(int indice, string nome, bool eu);
+
+    // ---- painel de verificação (abaixo dos integrantes)
+    public abstract string RotuloVerificacao { get; }
+
+    /// <summary>Linhas do painel de verificação, cabendo em <paramref name="largura"/> colunas.</summary>
+    public List<Trecho[]> Verificacao(InfoSeguranca? info, int largura)
+    {
+        var l = new List<Trecho[]>();
+        if (info is null)
+        {
+            l.Add([new(T("⚠ Sem criptografia"), ConsoleColor.Yellow, true)]);
+            l.Add([new(T("Mensagens em texto puro"), ConsoleColor.Yellow)]);
+            return l;
+        }
+        l.Add([new(T("Chave do servidor"), CorRotuloVerificacao)]);
+        string[] g = info.Impressao.Split(' ');
+        int porLinha = largura >= 19 ? 4 : 2;
+        for (int i = 0; i < g.Length; i += porLinha)
+            l.Add([new(string.Join(' ', g.Skip(i).Take(porLinha)), ConsoleColor.White, true)]);
+        l.Add(info.Situacao switch
+        {
+            ChavesConhecidas.Situacao.Conhecida => [new(T("✓ Chave já conhecida"), CorOk)],
+            ChavesConhecidas.Situacao.Nova => [new(T("★ Primeira conexão"), ConsoleColor.Yellow, true)],
+            _ => [new(T("⚠ Chave mudou (aceita)"), ConsoleColor.Red, true)],
+        });
+        l.Add([new(T("Compare com os outros"), CorRotuloVerificacao)]);
+        return l;
+    }
+
+    protected abstract bool Maiusculas { get; }
+    protected abstract ConsoleColor CorRotuloVerificacao { get; }
+    protected abstract ConsoleColor CorOk { get; }
+    private string T(string s) => Maiusculas ? s.ToUpperInvariant() : s;
 
     /// <summary>Linhas da sequência de abertura (null = sem abertura).</summary>
     public virtual Trecho[][]? Abertura(string nome, string endereco) => null;
@@ -109,11 +143,18 @@ sealed class TemaClassico : Tema
         return [.. t];
     }
 
-    public override Trecho[] CabecalhoDireita(bool conectado, bool piscar, DateTime agora, bool largo) =>
+    public override Trecho[] CabecalhoDireita(bool conectado, bool cifrado, bool piscar, DateTime agora, int detalhe) =>
     [
         new(conectado ? "●" : "○", conectado ? ConsoleColor.Green : ConsoleColor.Red),
-        new($"{(conectado ? " conectado" : " desconectado")}  {agora:HH:mm} "),
+        new(conectado ? " conectado" : " desconectado"),
+        new(conectado && (detalhe >= 1 || !cifrado) ? (cifrado ? " · cifrado" : " · sem cripto") : "", cifrado ? null : ConsoleColor.Yellow),
+        new($"  {agora:HH:mm} "),
     ];
+
+    public override string RotuloVerificacao => "Verificação";
+    protected override bool Maiusculas => false;
+    protected override ConsoleColor CorRotuloVerificacao => ConsoleColor.DarkGray;
+    protected override ConsoleColor CorOk => ConsoleColor.Green;
 
     public override Trecho[] Membro(int indice, string nome, bool eu)
     {
@@ -208,14 +249,16 @@ sealed class TemaTerminal : Tema
         return [.. t];
     }
 
-    public override Trecho[] CabecalhoDireita(bool conectado, bool piscar, DateTime agora, bool largo)
+    public override Trecho[] CabecalhoDireita(bool conectado, bool cifrado, bool piscar, DateTime agora, int detalhe)
     {
         var t = new List<Trecho>
         {
             new(conectado ? (piscar ? "◉" : "○") : "×", null, true),
             new(conectado ? " LINK ATIVO" : " SEM LINK", null, true),
         };
-        if (largo) t.Add(new($"  │  DTG {Dtg(agora)}"));
+        // "Texto puro" sempre aparece; "cifrado" é o normal e some se faltar espaço (o painel mostra).
+        if (conectado && (detalhe >= 1 || !cifrado)) t.Add(new(cifrado ? " · CIFRADO" : " · ⚠ TEXTO PURO", null, true));
+        if (detalhe >= 2) t.Add(new($"  │  DTG {Dtg(agora)}"));
         t.Add(new($"  │  {agora:HH:mm:ss} ", null, true));
         return [.. t];
     }
@@ -241,6 +284,11 @@ sealed class TemaTerminal : Tema
         : [new($"{indice:00} ", _fraca), new("▸ ", _forte), new(nome.ToUpperInvariant(), _forte)];
 
     public override string Prompt(string nome) => $"{nome.ToUpperInvariant()} ▸ ";
+
+    public override string RotuloVerificacao => "VERIFICAÇÃO";
+    protected override bool Maiusculas => true;
+    protected override ConsoleColor CorRotuloVerificacao => _fraca;
+    protected override ConsoleColor CorOk => _forte;
 
     public override Trecho[] Formatar(Evento e)
     {

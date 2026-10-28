@@ -37,6 +37,7 @@ sealed class TerminalSimples : IInterfaceChat
     public void DefinirSala(string? sala, string endereco) { }
     public void DefinirUsuarios(IReadOnlyCollection<string> nomes, string voce, bool listaCompleta) { }
     public void DefinirConectado(bool conectado) { }
+    public void DefinirSeguranca(InfoSeguranca? info) { }
     public void AguardarTecla(string aviso, CancellationToken ct) => Escrever(new Trecho(_tema.Alerta(aviso), ConsoleColor.Red));
     public void DefinirNome(string nome) { lock (_trava) Prompt = _tema.Prompt(nome); }
     public void Escrever(Evento evento) => Escrever(_tema.Formatar(evento));

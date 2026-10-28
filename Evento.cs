@@ -30,5 +30,11 @@ readonly record struct Evento(TipoEvento Tipo, string Texto = "", string? Autor 
     public DateTime Hora { get; init; } = DateTime.Now;
 }
 
+/// <summary>Dados do canal cifrado para o painel de verificação.</summary>
+sealed record InfoSeguranca(string Impressao, string ImpressaoCompleta, ChavesConhecidas.Situacao Situacao)
+{
+    public string Algoritmos => CanalSeguro.Algoritmos;
+}
+
 /// <summary>Um pedaço de texto com cor opcional (null = cor padrão do tema/terminal).</summary>
 readonly record struct Trecho(string Texto, ConsoleColor? Cor = null, bool Negrito = false);

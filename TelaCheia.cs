@@ -60,6 +60,8 @@ sealed class TelaCheia : IInterfaceChat
     private List<string> _usuarios = [];
     private string _voce = "";
     private bool _listaCompleta = true;
+    private bool _segurancaDefinida;
+    private InfoSeguranca? _seguranca;
 
     private int _rolagem;      // linhas acima do fim (0 = acompanhando as novas)
     private int _novasAbaixo;  // mensagens que chegaram enquanto rolado para cima
@@ -172,6 +174,11 @@ sealed class TelaCheia : IInterfaceChat
             _listaCompleta = listaCompleta;
             _sujo = true;
         }
+    }
+
+    public void DefinirSeguranca(InfoSeguranca? info)
+    {
+        lock (_trava) { _seguranca = info; _segurancaDefinida = true; _sujo = true; }
     }
 
     public void DefinirConectado(bool conectado)
@@ -504,10 +511,11 @@ sealed class TelaCheia : IInterfaceChat
         var esquerda = _tema.CabecalhoEsquerda(_sala, _endereco);
         int larguraEsquerda = esquerda.Sum(t => LarguraTexto(t.Texto)) + 2;
 
-        // DTG e outros extras só entram se couberem sem cortar o lado esquerdo.
-        var direita = _tema.CabecalhoDireita(_conectado, piscar, agora, largo: true);
-        if (larguraEsquerda + direita.Sum(t => LarguraTexto(t.Texto)) > W)
-            direita = _tema.CabecalhoDireita(_conectado, piscar, agora, largo: false);
+        bool cifrado = _seguranca is not null || !_segurancaDefinida;
+        // Extras (DTG, "cifrado") só entram se couberem sem cortar o lado esquerdo.
+        var direita = _tema.CabecalhoDireita(_conectado, cifrado, piscar, agora, detalhe: 2);
+        for (int d = 1; d >= 0 && larguraEsquerda + direita.Sum(t => LarguraTexto(t.Texto)) > W; d--)
+            direita = _tema.CabecalhoDireita(_conectado, cifrado, piscar, agora, detalhe: d);
 
         int xDireita = Math.Max(1, W - direita.Sum(t => LarguraTexto(t.Texto)));
         int c0 = 1;
@@ -555,6 +563,29 @@ sealed class TelaCheia : IInterfaceChat
     private void DesenharMembros(Celula[,] g, int y, int altura, int x0, int x1)
     {
         Titulo(g, 1, x0, x1, _tema.RotuloMembros(_usuarios.Count, _listaCompleta));
+
+        // Painel de verificação embaixo da lista: a chave que todos devem ver igual.
+        if (_segurancaDefinida)
+        {
+            var linhas = _tema.Verificacao(_seguranca, x1 - x0);
+            int alturaPainel = linhas.Count + 1;
+            if (altura - alturaPainel >= 3)
+            {
+                int ySep = y + altura - alturaPainel;
+                var m = _tema.Moldura;
+                Borda(g, ySep, x0 - 2, m.TEsq);
+                for (int c = x0 - 1; c <= x1; c++) Borda(g, ySep, c, m.H);
+                Borda(g, ySep, x1 + 1, m.TDir);
+                Titulo(g, ySep, x0, x1, _tema.RotuloVerificacao);
+                for (int i = 0; i < linhas.Count; i++)
+                {
+                    int c = x0;
+                    foreach (var t in linhas[i])
+                        c = Texto(g, ySep + 1 + i, c, x1, Cortar(t.Texto, Math.Max(1, x1 - c)), CorDe(t, _tema.CorTexto), negrito: t.Negrito);
+                }
+                altura = ySep - y;
+            }
+        }
 
         bool sobra = _usuarios.Count > altura;
         int mostrar = sobra ? altura - 1 : _usuarios.Count;

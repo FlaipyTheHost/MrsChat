@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -13,6 +14,9 @@ sealed partial class ClienteChat
     private readonly SemaphoreSlim _travaEnvio = new(1, 1);
     private string _nome;
     private NetworkStream? _stream;
+    private LeitorLinhas? _leitor;
+    private CanalSeguro? _canal;
+    private InfoSeguranca? _seguranca;
     private volatile bool _aguardandoSenha;
     private volatile bool _saindo;
 
@@ -59,6 +63,19 @@ sealed partial class ClienteChat
         }
 
         _stream = tcp.GetStream();
+        _leitor = new LeitorLinhas(_stream, Protocolo.TamanhoMaximoLinha * 3); // base64 cifrado ocupa mais
+
+        if (_op.SemCripto)
+        {
+            _t.DefinirSeguranca(null);
+            Mostrar(TipoEvento.Aviso, "Criptografia desligada (--sem-cripto): as mensagens trafegam em texto puro.");
+        }
+        else if (await NegociarCriptografiaAsync(ctExterno) is { } erro)
+        {
+            MensagemFinal = erro;
+            return 1;
+        }
+
         _t.DefinirConectado(true);
         lock (_travaUsuarios) _usuarios.Add(_nome);
         AtualizarPainel();
@@ -143,6 +160,9 @@ sealed partial class ClienteChat
         {
             case "exit" or "/sair" or "/quit" or "/exit":
                 return false;
+            case "/chave" or "/key" or "/verificar":
+                MostrarChave();
+                return true;
             case "/limpar" or "/clear" or "/cls":
                 _t.Limpar();
                 return true;
@@ -164,6 +184,7 @@ sealed partial class ClienteChat
         "  /nick <novo nome>      troca seu nome",
         "  /me <ação>             ex.: /me acenou",
         "  /limpar                limpa a conversa",
+        "  /chave                 mostra a impressão digital completa do servidor",
         "  /sair                  sai do chat (ou Ctrl+C)",
         "Teclas: ↑/↓ histórico · PgUp/PgDn rola a conversa · Tab completa nomes · Esc limpa a linha",
     ];
@@ -171,23 +192,114 @@ sealed partial class ClienteChat
     private async Task EnviarAsync(string linha, CancellationToken ct)
     {
         if (_stream is null) return;
-        byte[] dados = Utf8SemBom.GetBytes(linha + "\n");
         await _travaEnvio.WaitAsync(ct);
-        try { await _stream.WriteAsync(dados, ct); }
+        try
+        {
+            // Cifra dentro da trava: a ordem de cifragem é a ordem em que os bytes saem (nonce = contador).
+            string saida = _canal is null ? linha : _canal.Cifrar(linha);
+            await _stream.WriteAsync(Utf8SemBom.GetBytes(saida + "\n"), ct);
+        }
         finally { _travaEnvio.Release(); }
+    }
+
+    // ---------------------------------------------------------- criptografia
+
+    /// <returns>null se deu certo; senão, a explicação do problema.</returns>
+    private async Task<string?> NegociarCriptografiaAsync(CancellationToken ct)
+    {
+        Mostrar(TipoEvento.Local, "Negociando canal cifrado...");
+        var (efemera, abertura) = CanalSeguro.IniciarComoCliente();
+        using (efemera)
+        {
+            await _stream!.WriteAsync(Utf8SemBom.GetBytes(abertura + "\n"), ct);
+
+            string? resposta;
+            try
+            {
+                using var prazo = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                prazo.CancelAfter(TimeSpan.FromSeconds(10));
+                resposta = await _leitor!.LerLinhaAsync(prazo.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { resposta = null; }
+            catch (Exception ex) when (ex is IOException or SocketException or InvalidDataException) { resposta = null; }
+
+            const string Antigo = "Atualize o MrsChatServer para a v2.3 ou conecte com --sem-cripto (sem proteção).";
+            if (resposta is null)
+                return "O servidor não respondeu ao pedido de criptografia. Ele deve ser de uma versão antiga.\n" + Antigo;
+            if (resposta.StartsWith(Protocolo.PrefixoServidor, StringComparison.Ordinal) && !resposta.Contains("muito longo"))
+                return "O servidor recusou a conexão: " + resposta[Protocolo.PrefixoServidor.Length..];
+            if (!resposta.StartsWith(CanalSeguro.Prefixo + " ", StringComparison.Ordinal))
+                return $"O servidor não suporta criptografia (respondeu: \"{resposta}\").\n" + Antigo;
+
+            byte[] chaveServidor;
+            try
+            {
+                _canal = CanalSeguro.ConcluirComoCliente(efemera, resposta, out chaveServidor);
+            }
+            catch (Exception ex) when (ex is CryptographicException or FormatException)
+            {
+                return $"Falha na verificação criptográfica do servidor ({ex.Message}).\n" +
+                       "A conexão pode estar sendo interceptada. Nada foi enviado.";
+            }
+
+            string curta = CanalSeguro.Impressao(chaveServidor), completa = CanalSeguro.Impressao(chaveServidor, 16);
+            var situacao = ChavesConhecidas.Verificar(_op.Endereco, completa, _op.ConfiarNovaChave, out string? anterior);
+            if (situacao == ChavesConhecidas.Situacao.Mudou && !_op.ConfiarNovaChave)
+            {
+                _canal.Dispose();
+                _canal = null;
+                return $"ATENÇÃO: a chave do servidor {_op.Endereco} MUDOU.\n" +
+                       $"  antes: {anterior}\n  agora: {completa}\n" +
+                       "Alguém pode estar se passando pelo servidor. Confirme a chave nova com quem administra a sala;\n" +
+                       "se estiver certa, conecte de novo com --confiar-nova-chave. Nada foi enviado.";
+            }
+
+            _seguranca = new InfoSeguranca(curta, completa, situacao);
+            _t.DefinirSeguranca(_seguranca);
+            Mostrar(TipoEvento.Sucesso, $"Canal cifrado estabelecido ({CanalSeguro.Algoritmos}).");
+            Mostrar(situacao switch
+            {
+                ChavesConhecidas.Situacao.Conhecida => TipoEvento.Local,
+                _ => TipoEvento.Aviso,
+            }, situacao switch
+            {
+                ChavesConhecidas.Situacao.Conhecida => $"Chave do servidor reconhecida: {curta}",
+                ChavesConhecidas.Situacao.Nova => $"Primeira conexão com este servidor. Chave: {curta}. Confira com o administrador e com os outros.",
+                _ => $"Chave do servidor mudou e foi aceita (--confiar-nova-chave): {curta}",
+            });
+            return null;
+        }
+    }
+
+    private void MostrarChave()
+    {
+        if (_seguranca is null) { Mostrar(TipoEvento.Aviso, "Esta conexão não está cifrada."); return; }
+        string[] g = _seguranca.ImpressaoCompleta.Split(' ');
+        Mostrar(TipoEvento.Local, $"Impressão digital da chave do servidor ({CanalSeguro.Algoritmos}):");
+        Mostrar(TipoEvento.Local, "  " + string.Join(' ', g[..8]));
+        Mostrar(TipoEvento.Local, "  " + string.Join(' ', g[8..]));
+        Mostrar(TipoEvento.Local, "Todos na sala devem ver o mesmo código. Se o seu for diferente, sua conexão foi interceptada.");
     }
 
     // ----------------------------------------------------------- recebimento
 
     private async Task ReceberAsync(CancellationTokenSource cts)
     {
-        var leitor = new LeitorLinhas(_stream!, Protocolo.TamanhoMaximoLinha * 2);
         try
         {
             while (!cts.IsCancellationRequested)
             {
-                string? linha = await leitor.LerLinhaAsync(cts.Token);
+                string? linha = await _leitor!.LerLinhaAsync(cts.Token);
                 if (linha is null) return;
+                if (_canal is not null)
+                {
+                    try { linha = _canal.Decifrar(linha); }
+                    catch (CryptographicException)
+                    {
+                        Mostrar(TipoEvento.Aviso, "Recebida uma mensagem cifrada inválida (alterada no caminho?). Conexão encerrada por segurança.");
+                        return;
+                    }
+                }
                 linha = linha.Trim();
                 if (linha.Length > 0) await TratarLinhaAsync(linha, cts.Token);
             }

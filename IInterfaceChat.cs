@@ -24,6 +24,9 @@ interface IInterfaceChat : IDisposable
     void DefinirUsuarios(IReadOnlyCollection<string> nomes, string voce, bool listaCompleta);
     void DefinirConectado(bool conectado);
 
+    /// <summary>Chave do servidor para os usuários compararem (null = conexão sem criptografia).</summary>
+    void DefinirSeguranca(InfoSeguranca? info);
+
     /// <summary>Mostra um aviso e espera uma tecla (ex.: conexão perdida), para não sumir com a tela.</summary>
     void AguardarTecla(string aviso, CancellationToken ct);
 }
