@@ -8,7 +8,7 @@ Conversa em salas hospedadas pelo [**MrsChatServer**](https://github.com/FlaipyT
 
 O projeto nasceu de uma cena de **The Incredible Hulk (2008)**, em que Bruce Banner, escondido numa favela do Rio, troca mensagens com o misterioso "Mr. Blue". A ideia era aprender na prática como funciona a comunicação cliente-servidor com sockets de rede, e o app foi crescendo a partir daí.
 
-<img src="captura.gif" alt="MrsChat em funcionamento">
+<img src="captura.gif" alt="Almejo">
 
 ## Recursos
 
@@ -141,7 +141,7 @@ git tag v2.3.0
 git push origin v2.3.0
 ```
 
-Ele também pode ser disparado à mão em **Actions → Release → Run workflow**. Nesse caso, os pacotes ficam disponíveis como artefato da execução, sem criar release. O empacotamento é feito pelo [`empacotamento/empacotar.sh`](empacotamento/empacotar.sh), que também roda localmente.
+Ele também pode ser disparado à mão em **Actions -> Release -> Run workflow**. Nesse caso, os pacotes ficam disponíveis como artefato da execução, sem criar release. O empacotamento é feito pelo [`empacotamento/empacotar.sh`](empacotamento/empacotar.sh), que também roda localmente.
 
 ## Licença
 
